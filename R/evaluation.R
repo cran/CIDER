@@ -78,8 +78,8 @@ estimateProb <- function(seu, ider, n_size = 40,
                                         colnames(seu_selected))]
     seu$forced_cluster[is.na(seu$forced_cluster)] <- "bg"
     metadata <- data.frame(label = paste0(seu$forced_cluster, "_", seu$Batch),
-                            batch = seu$Batch,
-                            ground_truth = seu$Group, stringsAsFactors = FALSE)
+                           batch = seu$Batch,
+                           stringsAsFactors = FALSE)
 
     # downsampling
     select <- downsampling(metadata = metadata, n.size = n_size,
