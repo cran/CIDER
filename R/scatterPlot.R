@@ -1,23 +1,25 @@
-#' @title Scatterplot by a selected feature
-#' @description Scatterplot of a Seurat object based on dimension reduction.
+#' Scatterplot by a selected feature
+#' 
+#' Scatterplot of a Seurat object based on dimension reduction.
 #'
-#' @param seu Seurat S4 object after the step of `getIDER`. Required.
+#' @param seu Seurat S4 object after the step of \code{getIDER}. Required.
 #' @param reduction Character. The dimension reduction used to plot. Common
-#' options: "pca", "tsne", "umap". The availability of dimension reduction
-#' can be checked by `Reductions(seu)`.
-#' @param colour.by Character. One of the column names of `seu@meta.data`.
+#' options: \code{"pca"}, \code{"tsne"}, \code{"umap"}. The availability of dimension reduction
+#' can be checked by \code{Reductions(seu)}.
+#' @param colour.by Character. One of the column names of \code{seu@meta.data}.
 #' Can be either discreet or continuous variables.
 #' @param colvec A vector of Hex colour codes. If no value is given (default),
 #' a vector of 74 colours will be used.
 #' @param title Character. Title of the figure.
 #' @param sort.by.numbers Boolean. Whether to sort the groups by the number
-#'  of cells.(Default: True)
-#' @param viridis_option viridis_option. (Default: B)
-#' @return a scatter plot
+#'  of cells.(Default: \code{True})
+#' @param viridis_option viridis_option. (Default: \code{B})
+#' @return A ggplot2 scatter plot
 #' @import ggplot2
 #' @importFrom Seurat Reductions
 #' @importFrom viridis scale_fill_viridis
 #' @export
+#'
 scatterPlot <- function(seu, reduction, colour.by, colvec = NULL,
                         title = NULL, sort.by.numbers = TRUE,
                         viridis_option = "B") {
@@ -42,8 +44,8 @@ scatterPlot <- function(seu, reduction, colour.by, colvec = NULL,
   }
 
   if(reduction %in% Reductions(seu)){
-    df_plot <- data.frame(x = Reductions(seu, reduction)@cell.embeddings[,1],
-                          y = Reductions(seu, reduction)@cell.embeddings[,2],
+    df_plot <- data.frame(x = Embeddings(seu, reduction)[,1],
+                          y = Embeddings(seu, reduction)[,2],
                           stringsAsFactors = FALSE)
   } else {
     stop("Provided reduction name does not exist in the seurat object.

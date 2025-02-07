@@ -2,31 +2,42 @@
 % Please edit documentation in R/evaluation.R
 \name{estimateProb}
 \alias{estimateProb}
-\title{Estimate the empirical probability of whether two set of cells
-from distinct batches belong to the same population}
+\title{Estimate the Empirical Probability of Whether Two Set of Cells
+from Distinct Batches Belong to the Same Population}
 \usage{
-estimateProb(seu, ider, n_size = 40, n.perm = 5, verbose = FALSE)
+estimateProb(
+  seu,
+  ider,
+  batch.var = "Batch",
+  n_size = 40,
+  n.perm = 5,
+  verbose = FALSE
+)
 }
 \arguments{
-\item{seu}{A Seurat object}
+\item{seu}{A Seurat object.}
 
-\item{ider}{The output list of function `getIDEr`.}
+\item{ider}{A list returned by the \code{getIDEr} function.}
 
-\item{n_size}{Number of cells per group used to compute the similarity. Default: 40}
+\item{batch.var}{Character string specifying the metadata column that contains 
+batch information. Default is "Batch".}
 
-\item{n.perm}{Numeric. Time of permutations.}
+\item{n_size}{Numeric value indicating the number of cells per group used to 
+compute the similarity. Default is 40.}
 
-\item{verbose}{Boolean. Print out progress or not. (Default: FALSEW)}
+\item{n.perm}{Numeric value specifying the number of permutations to perform.}
+
+\item{verbose}{Logical. If \code{TRUE}, progress messages are printed. 
+Default is \code{FALSE}.}
 }
 \value{
-A Seurat object with IDER-based similarity and empirical
-probability of rejection
+A Seurat object with additional columns for the IDER-based similarity 
+and the empirical probability of rejection.
 }
 \description{
-Estimate the empirical probability of whether two set of cells
-from distinct batches belong to the same population
+This function computes the empirical probability that two sets of cells from 
+distinct batches belong to the same population, based on the output of \code{getIDEr}.
 }
 \seealso{
-Usage of this function should be after \code{\link{hdbscan.seurat}}
-and \code{\link{getIDEr}}
+\code{\link{hdbscan.seurat}}, \code{\link{getIDEr}}
 }

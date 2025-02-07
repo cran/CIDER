@@ -1,54 +1,71 @@
-#' @title Initial clustering for evaluating integration
+#' Initial Clustering for Evaluating Integration
 #'
-#' @description This function applies HDBSCAN, a density-based
-#' clustering method, on the corrected dimension reduction.
+#' This function applies HDBSCAN, a density-based clustering algorithm, to the corrected dimension 
+#' reduction of a Seurat object.
 #'
-#' @param seu a Seurat object containing integrated or batch corrected
-#'  PCA.
-#' @param reduction Character. Name of the dimension reduction after
-#' integration or batch correction. (Default: PCA)
-#' @param dims Numeric vector. Dimensions used for initial clustering.
-#' (Default: 1:15)
-#' @param minPts Interger. Minimum size of clusters. Will be passed
-#' to the `hdbscan` function. (Default: 25)
+#' @param seu A Seurat object containing integrated or batch-corrected data (e.g. PCA results).
+#' @param batch.var Character string specifying the metadata column that contains batch information. 
+#' Default is "Batch".
+#' @param reduction Character string specifying the name of the dimension reduction to use (e.g. "PCA"). 
+#' Default is "PCA".
+#' @param dims Numeric vector indicating the dimensions to be used for initial clustering. Default is 1:15.
+#' @param minPts Integer specifying the minimum number of points required to form a cluster. 
+#' This value is passed to the \code{hdbscan} function. Default is 25.
 #'
-#' @return A Seurat object having two additional columns in its
-#' meta.data: dbscan_cluster and initial_cluster.
+#' @return A Seurat object with two additional columns in its \code{meta.data}: 
+#' \code{dbscan_cluster} and \code{initial_cluster}.
 #'
-#' @seealso Usage of this function should be followed by
-#' \code{\link{getIDEr}} and \code{\link{estimateProb}}.
+#' @seealso \code{\link{getIDEr}}, \code{\link{estimateProb}}
+#'
 #' @export
 #'
 #' @import Seurat
 #' @importFrom dbscan hdbscan
-hdbscan.seurat <- function(seu, reduction = "pca",
+hdbscan.seurat <- function(seu, batch.var = "Batch", reduction = "pca",
                             dims = seq_len(15), minPts = 25){
-  if(!reduction %in% Reductions(seu)) stop("pca does not exist.")
-  seu <- RunTSNE(seu, reduction = reduction, dims = dims)
-  res <- hdbscan(Reductions(seu, "tsne")@cell.embeddings[,seq_len(2)],
+  if(!reduction %in% Reductions(seu)) stop("Reduction does not exist. Please check the reduction paramter.")
+  seu <- RunTSNE(seu, reduction = reduction, dims = dims, reduction.name = "tsne")
+  
+  tsne_embeddings <- Embeddings(seu, "tsne")
+  # tsne_embeddings <- if (.checkSeuratObjectVersion(seu) == "v5") {
+  #   Embeddings(seu, "tsne")
+  # } else {
+  #   Reductions(seu, "tsne")@cell.embeddings
+  # }
+
+  res <- hdbscan(tsne_embeddings[,seq_len(2)],
                   minPts = minPts)
   seu$dbscan_cluster <- factor(as.character(res$cluster))
-  seu$initial_cluster <- factor(as.character(paste0(seu$dbscan_cluster,
-                                                    "_", seu$Batch)))
+  seu$initial_cluster <- factor(paste0(seu$dbscan_cluster, "_", seu@meta.data[[batch.var]]))
   return(seu)
 }
 
-
-#' @title Estimate the empirical probability of whether two set of cells
-#' from distinct batches belong to the same population
-#' @param seu A Seurat object
-#' @param ider The output list of function `getIDEr`.
-#' @param n_size Number of cells per group used to compute the similarity. Default: 40
-#' @param n.perm Numeric. Time of permutations.
-#' @param verbose Boolean. Print out progress or not. (Default: FALSEW)
-#' @return A Seurat object with IDER-based similarity and empirical
-#' probability of rejection
+#' Estimate the Empirical Probability of Whether Two Set of Cells
+#' from Distinct Batches Belong to the Same Population
+#'
+#' This function computes the empirical probability that two sets of cells from 
+#' distinct batches belong to the same population, based on the output of \code{getIDEr}.
+#'
+#' @param seu A Seurat object.
+#' @param ider A list returned by the \code{getIDEr} function.
+#' @param batch.var Character string specifying the metadata column that contains 
+#' batch information. Default is "Batch".
+#' @param n_size Numeric value indicating the number of cells per group used to 
+#' compute the similarity. Default is 40.
+#' @param n.perm Numeric value specifying the number of permutations to perform.
+#' @param verbose Logical. If \code{TRUE}, progress messages are printed. 
+#' Default is \code{FALSE}.
+#'
+#' @return A Seurat object with additional columns for the IDER-based similarity 
+#' and the empirical probability of rejection.
+#'
+#' @seealso \code{\link{hdbscan.seurat}}, \code{\link{getIDEr}}
+#'
+#' @export
+#'
 #' @import limma edgeR foreach utils doParallel
 #' @importFrom kernlab specc
-#' @seealso Usage of this function should be after \code{\link{hdbscan.seurat}}
-#' and \code{\link{getIDEr}}
-#' @export
-estimateProb <- function(seu, ider, n_size = 40,
+estimateProb <- function(seu, ider, batch.var = "Batch", n_size = 40,
                           #seeds = c(12345, 89465, 10385, 10385, 17396),
                           n.perm = 5, verbose = FALSE){
 
@@ -63,7 +80,8 @@ estimateProb <- function(seu, ider, n_size = 40,
   combinations_all <- c()
   bg_dist_coef_list <- list() # background distance distribution
   seu_selected <- seu[,idx]
-  pca <- seu@reductions$pca@cell.embeddings[idx, seq_len(15)]
+  # pca <- seu@reductions$pca@cell.embeddings[idx, seq_len(15)]
+  pca <- Embeddings(seu, "pca")[idx, seq_len(15)]
   # use first 15 PCs for spectral clustering
 
   for(itor in seq_len(n.perm)) {
@@ -73,20 +91,23 @@ estimateProb <- function(seu, ider, n_size = 40,
 
     ## Calculate background distribution
     seu_selected$forced_cluster <- res@.Data
-    seu$forced_cluster <-
+    seu@meta.data$forced_cluster <-
       seu_selected$forced_cluster[match(colnames(seu),
                                         colnames(seu_selected))]
     seu$forced_cluster[is.na(seu$forced_cluster)] <- "bg"
-    metadata <- data.frame(label = paste0(seu$forced_cluster, "_", seu$Batch),
-                           batch = seu$Batch,
-                           stringsAsFactors = FALSE)
+    metadata <- data.frame(label = paste0(seu$forced_cluster, "_", seu@meta.data[[batch.var]]),
+                            batch = seu@meta.data[[batch.var]],
+                            stringsAsFactors = FALSE)
 
     # downsampling
     select <- downsampling(metadata = metadata, n.size = n_size,
-                           include = TRUE, replace = TRUE, lower.cutoff = 15)
+                           include = TRUE, replace = FALSE, lower.cutoff = 15)
 
     # IDER
-    matrix <- as.matrix(seu@assays$RNA@counts[,select])
+    # matrix <- as.matrix(seu@assays$RNA@counts[,select])
+    # version-aware layer/slot handling
+    matrix <- .getCountsMatrix(seu)[, select]
+    
     keep <- rowSums(matrix > 0.5) > 5
     dge <- edgeR::DGEList(counts = matrix[keep, , drop = FALSE])
     # make a edgeR object
@@ -167,7 +188,7 @@ estimateProb <- function(seu, ider, n_size = 40,
     }
   }
 
-  idx <- getSharedGroups(seu, ider[[1]])
+  idx <- getSharedGroups(seu, ider[[1]], batch.var = batch.var)
   shared_g <- idx[[1]]
   idx1 <- idx[[2]]
   idx2 <- idx[[3]]
@@ -177,12 +198,12 @@ estimateProb <- function(seu, ider, n_size = 40,
   # assign similiary
   scores <- diag(ider[[1]][idx1, idx2])
   names(scores) <- shared_g
-  seu$similarity <- scores[match(seu$dbscan_cluster, names(scores))]
+  seu@meta.data$similarity <- scores[match(seu$dbscan_cluster, names(scores))]
 
   # assign p values
   scores <- diag(p_mat[idx1, idx2])
   names(scores) <- shared_g
-  seu$pvalue <- scores[match(seu$dbscan_cluster, names(scores))]
+  seu@meta.data$pvalue <- scores[match(seu$dbscan_cluster, names(scores))]
 
   return(seu)
 }
